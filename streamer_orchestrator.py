@@ -60,7 +60,7 @@ class StreamerOrchestrator:
 
     @staticmethod
     def _create_cfg_file(site_name: str, file_path: str):
-        cfg_file = f"cfg/cfg-{site_name}.txt"
+        cfg_file = f"data/cfg/cfg-{site_name}.txt"
         with open(cfg_file, "w", encoding="utf-8") as f:
             f.write(file_path)
         return cfg_file

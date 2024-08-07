@@ -1,4 +1,5 @@
 import os
+import sys
 
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,7 +17,6 @@ def download_files(date: str):
     host = "api.simurg.space"
     port = 443
     url_template = f"/datafiles/map_files?date={date}"
-    storage_path = Path("/home/aleksandr/PycharmProjects/istp")
 
     # Создаем экземпляр ExampleDataSource
     data_source = SimurgSource(protocol, host, port, url_template, storage_path)
@@ -33,7 +33,7 @@ def download_files(date: str):
     print("Загружаем файлы...")
 
 
-def orchestrate_first_launch(orchestrator, directory_path="2024-01-01"):
+def orchestrate_first_launch(orchestrator, directory_path="data/2024-01-01"):
     for file in os.listdir(directory_path):
         if file.endswith(".rnx"):
             orchestrator.add_station(file[0:4], os.path.abspath(f"{directory_path}/{file}"))
@@ -54,25 +54,31 @@ def scheduled_everyday_task(orchestrator):
     current_date += timedelta(days=1)
 
 
-current_date = "2024-01-01"
-# download_files(current_date)
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python scheduler.py <storage_path>")
+        sys.exit(1)
 
-orchestrator = StreamerOrchestrator()
-orchestrate_first_launch(orchestrator, current_date)
-orchestrator.launch_all_streamers(LaunchesModes.subprocess)
+    storage_path = Path(sys.argv[1])
 
-# Создаем экземпляр планировщика
-scheduler = BlockingScheduler()
+    current_date = "2024-01-01"
+    download_files(current_date)
 
-# Планируем выполнение функции download_files каждый день в определенное время
-scheduler.add_job(scheduled_everyday_task, "cron", hour=23, minute=0, args=[orchestrator])
-# scheduler.add_job(scheduled_everyday_task, 'interval', minutes=8)
+    orchestrator = StreamerOrchestrator()
+    orchestrate_first_launch(orchestrator, "data/" + current_date)
+    orchestrator.launch_all_streamers(LaunchesModes.subprocess)
 
+    # Создаем экземпляр планировщика
+    scheduler = BlockingScheduler()
 
-try:
-    # Запускаем планировщик
-    print("Запуск планировщика...")
-    scheduler.start()
+    # Планируем выполнение функции download_files каждый день в определенное время
+    scheduler.add_job(scheduled_everyday_task, "cron", hour=23, minute=0, args=[orchestrator, storage_path])
+    # scheduler.add_job(scheduled_everyday_task, 'interval', minutes=8)
 
-except (KeyboardInterrupt, SystemExit):
-    pass
+    try:
+        # Запускаем планировщик
+        print("Запуск планировщика...")
+        scheduler.start()
+
+    except (KeyboardInterrupt, SystemExit):
+        pass

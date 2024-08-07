@@ -78,7 +78,7 @@ class SimurgSource(DataSource):
 
     def download(self, date: str):
         file_name = f"{date}.zip"
-        with open(file_name, "wb") as f:
+        with open("data/" + file_name, "wb") as f:
             print("Downloading %s" % file_name)
             response = requests.get(
                 f"{self.protocol.value}://{self.host}:{self.port}/datafiles/map_files?date={date}",
