@@ -39,8 +39,11 @@ class StreamerOrchestrator:
                 minutes=1,
                 args=[LaunchesModes.subprocess],
             )
-
+            self.storage_path = None
             self.initialized = True
+
+    def set_storage_path(self, storage_path: Path):
+        self.storage_path = storage_path
 
     def add_station(self, site_name: str, file_path: str):
         if (
@@ -58,9 +61,11 @@ class StreamerOrchestrator:
                 self.sites.update({site_name: streamer})
                 logging.info(f"Станция {site_name} успешно добавлена")
 
-    @staticmethod
-    def _create_cfg_file(site_name: str, file_path: str):
-        cfg_file = f"data/cfg/cfg-{site_name}.txt"
+    def _create_cfg_file(self, site_name: str, file_path: str):
+        cfg_dir = self.storage_path / "cfg"
+        if not cfg_dir.exists():
+            cfg_dir.mkdir()
+        cfg_file = cfg_dir / f"cfg-{site_name}.txt"
         with open(cfg_file, "w", encoding="utf-8") as f:
             f.write(file_path)
         return cfg_file

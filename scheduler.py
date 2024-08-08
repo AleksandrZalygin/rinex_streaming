@@ -35,6 +35,7 @@ def download_files(date: str):
 
 def orchestrate_first_launch(orchestrator, directory_path="data/2024-01-01"):
     for file in os.listdir(directory_path):
+        print(f"Candidate for adding to orchester - file {file}")
         if file.endswith(".rnx"):
             orchestrator.add_station(file[0:4], os.path.abspath(f"{directory_path}/{file}"))
 
@@ -65,7 +66,8 @@ if __name__ == "__main__":
     download_files(current_date)
 
     orchestrator = StreamerOrchestrator()
-    orchestrate_first_launch(orchestrator, "data/" + current_date)
+    orchestrator.set_storage_path(storage_path)
+    orchestrate_first_launch(orchestrator, storage_path / "data" / current_date)
     orchestrator.launch_all_streamers(LaunchesModes.subprocess)
 
     # Создаем экземпляр планировщика

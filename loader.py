@@ -78,8 +78,15 @@ class SimurgSource(DataSource):
 
     def download(self, date: str):
         file_name = f"{date}.zip"
-        with open("data/" + file_name, "wb") as f:
-            print("Downloading %s" % file_name)
+        data_path = self.storage_path / "data"
+        if not data_path.exists():
+            data_path.mkdir()
+        file_path = data_path / file_name
+        if file_path.exists():
+            print(f"{file_path} exists. Remove it to force download")
+            return file_path
+        with open(file_path, "wb") as f:
+            print("Downloading %s" % file_path)
             response = requests.get(
                 f"{self.protocol.value}://{self.host}:{self.port}/datafiles/map_files?date={date}",
                 stream=True,
@@ -97,7 +104,7 @@ class SimurgSource(DataSource):
                     done = int(50 * dl / total_length)  # type: ignore
                     sys.stdout.write("\r[%s%s]" % ("=" * done, " " * (50 - done)))
                     sys.stdout.flush()
-        return self.storage_path / file_name
+        return file_path
 
     def check_download(self, file_path: Path) -> bool:
         return file_path.exists() and file_path.stat().st_size > 0
@@ -112,6 +119,7 @@ class SimurgSource(DataSource):
                 self._uncompress_z_file(item)
 
         for item in extract_path.iterdir():
+            print(f"Working with compact rinex candidate {item}")
             if item.suffix == ".crx":
                 self._convert_crx_to_rnx(item)
 
@@ -166,7 +174,7 @@ class SimurgSource(DataSource):
             print(f"Error during .gz file unpacking: {e}")
         except FileNotFoundError:
             print(
-                "The `gunzip` utility is not available. Please install it using `sudo apt-get install gzip`."
+                "The `CRX2RNX` utility is not available. Please install it using https://terras.gsi.go.jp/ja/crx2rnx.html."
             )
 
     def get_sites_data(self) -> list:
