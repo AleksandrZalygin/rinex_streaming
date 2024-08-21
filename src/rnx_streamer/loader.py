@@ -17,6 +17,7 @@ class DataSource(ABC):
 
     def __init__(
         self,
+        server_url : str,
         protocol: Protocol,
         host: str,
         port: int,
@@ -33,6 +34,7 @@ class DataSource(ABC):
         url_template (str): The URL template for data retrieval.
         storage_path (Path): The path where downloaded data will be stored.
         """
+        self.server_url = server_url
         self.protocol = protocol
         self.session = requests.Session()
         self.host = host
@@ -262,12 +264,6 @@ class SimurgSource(DataSource):
         except FileNotFoundError:
             self.logger.error("The `CRX2RNX` utility is not available.")
 
-    def get_sites_data(self) -> list:
-        """
-        Get the paths of downloaded data.
-
-        Returns:
-        list: A list of paths of downloaded data.
-        """
-        self.logger.info("Getting site data paths")
-        return [str(file) for file in self.storage_path.glob("*.zip")]
+    def get_download_sites_data(self, path: Path):
+        requests.post(f"{self.server_url}/upload_stations/",
+                      [str(file[:4]) for file in path])

@@ -3,3 +3,5 @@ requests==2.32.3
 gnss_tec==1.1.1
 
 psutil~=6.0.0
+paho-mqtt~=2.1.0
+fastapi~=0.112.1

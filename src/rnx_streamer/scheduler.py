@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     # current_date = "2024-01-01"
     current_date = get_date(days_to_subtract)
-    download_files(current_date)
+    #download_files(current_date)
     directory_path = storage_path / "data" / current_date
 
     orchestrator = StreamerOrchestrator()
@@ -155,3 +155,30 @@ if __name__ == "__main__":
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         pass
+
+
+# import time
+# import paho.mqtt.client as mqtt_client
+# import random
+#
+# broker="broker.emqx.io"
+#
+# client = mqtt_client.Client(
+#    mqtt_client.CallbackAPIVersion.VERSION1,
+#    'isu1001230000'
+# )
+#
+# print("Connecting to broker",broker)
+# print(client.connect(broker))
+# client.loop_start()
+# print("Publishing")
+#
+# for i in range(10):
+#     state = "255000000000255000255000000000255000000000255"
+#     state = state[i:] + state[:i]
+#     print(f"state is {state}")
+#     client.publish("streamer/data", state)
+#     time.sleep(2)
+#
+# client.disconnect()
+# client.loop_stop()

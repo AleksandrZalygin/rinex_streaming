@@ -2,7 +2,11 @@ import re
 import subprocess
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
+from requests import Response
+
 from launches_modes import LaunchesModes
 from logger import setup_logger
 
@@ -54,8 +58,8 @@ class StreamerOrchestrator:
 
     def __init__(self):
         if not hasattr(self, "initialized"):  # Avoid reinitialization
-            self.sites = {}
             self.logger = setup_logger("StreamerOrchestrator")
+            self.server_url = "http://127.0.0.1:8000"
             self.scheduler = BackgroundScheduler()
             self.scheduler.start()
             self.scheduler.add_job(
@@ -66,6 +70,8 @@ class StreamerOrchestrator:
             )
             self.storage_path = None
             self.initialized = True
+            self.sites = {}
+            # self.sites = self._get_all_stations()
 
     def set_storage_path(self, storage_path: Path):
         """
@@ -77,7 +83,14 @@ class StreamerOrchestrator:
         Returns:
         None
         """
-        self.storage_path = storage_path
+        self.storage_path = storage_path  # type: ignore
+
+    def _get_all_stations(self) -> dict:
+        response = requests.post(f"{self.server_url}/all_streamers/")
+        if response.status_code == 200:
+            return response.json()
+        else:
+            self.logger.error("Failed to get all streamers:", response.json())
 
     def add_station(self, site_name: str, file_path: Path):
         """
@@ -102,8 +115,17 @@ class StreamerOrchestrator:
             else:
                 cfg_file = self._create_cfg_file(site_name, file_path)
                 streamer = StreamerInfo(site_name, cfg_file)
-                self.sites.update({site_name: streamer})
+                # self._register_streamer(site_name, streamer)
+                self.sites[site_name] = streamer
                 self.logger.info("Station %s added successfully", site_name)
+
+    def _register_streamer(self, site_name: str, streamer: StreamerInfo):
+        response = requests.post(f"{self.server_url}/register_streamer/",
+                                 json={"streamer_id": site_name, "streamer": streamer})
+        if response.status_code == 200:
+            self.logger.info("Streamer registered successfully")
+        else:
+            self.logger.error("Failed to register streamer:", response.json())
 
     def _create_cfg_file(self, site_name: str, file_path: Path):
         """
@@ -238,7 +260,7 @@ class StreamerOrchestrator:
         if mode == LaunchesModes.subprocess:
             try:
                 subprocess.run(
-                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file)],
+                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file), self.server_url, "broker.emqx.io"],
                     check=True,
                 )
                 self.logger.info(f"Streamer launched for {site_name} using subprocess.")
