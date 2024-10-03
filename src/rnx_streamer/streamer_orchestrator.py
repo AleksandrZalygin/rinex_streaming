@@ -71,7 +71,6 @@ class StreamerOrchestrator:
             self.storage_path = None
             self.initialized = True
             self.sites = {}
-            # self.sites = self._get_all_stations()
 
     def set_storage_path(self, storage_path: Path):
         """
@@ -85,8 +84,21 @@ class StreamerOrchestrator:
         """
         self.storage_path = storage_path  # type: ignore
 
-    def _get_all_stations(self) -> dict:
-        response = requests.post(f"{self.server_url}/all_streamers/")
+    def _get_all_stations(self) -> list:  # type: ignore
+        """
+        Fetch all streamer stations from the server.
+
+        This method sends a GET request to the server to retrieve a list of all streamer stations.
+        If the request is successful (status code 200), it returns the response data as a list.
+        If the request fails (status code other than 200), it logs an error message and returns an empty list.
+
+        Parameters:
+        None
+
+        Returns:
+        list: A list of streamer station names. If the request fails, returns an empty list.
+        """
+        response = requests.get(f"{self.server_url}/all_streamers/")
         if response.status_code == 200:
             return response.json()
         else:
@@ -115,13 +127,27 @@ class StreamerOrchestrator:
             else:
                 cfg_file = self._create_cfg_file(site_name, file_path)
                 streamer = StreamerInfo(site_name, cfg_file)
-                # self._register_streamer(site_name, streamer)
+                self._register_streamer(site_name, streamer)
                 self.sites[site_name] = streamer
                 self.logger.info("Station %s added successfully", site_name)
 
     def _register_streamer(self, site_name: str, streamer: StreamerInfo):
+        """
+        Register a streamer with the server using the provided site name and streamer information.
+
+        Parameters:
+        site_name (str): The unique identifier for the streamer station.
+        streamer (StreamerInfo): An instance of StreamerInfo containing the configuration file path.
+
+        Returns:
+        None
+
+        This method sends a POST request to the server's registration endpoint with the site name and
+        configuration file path. If the registration is successful (status code 200), it logs an info message.
+        If the registration fails (status code other than 200), it logs an error message along with the server's response.
+        """
         response = requests.post(f"{self.server_url}/register_streamer/",
-                                 json={"streamer_id": site_name, "streamer": streamer})
+                                 json={"streamer_id": site_name, "cfg_file": str(streamer.cfg_file)})
         if response.status_code == 200:
             self.logger.info("Streamer registered successfully")
         else:
@@ -260,7 +286,7 @@ class StreamerOrchestrator:
         if mode == LaunchesModes.subprocess:
             try:
                 subprocess.run(
-                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file), self.server_url, "broker.emqx.io"],
+                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file), self.server_url, "simurg.space"],
                     check=True,
                 )
                 self.logger.info(f"Streamer launched for {site_name} using subprocess.")

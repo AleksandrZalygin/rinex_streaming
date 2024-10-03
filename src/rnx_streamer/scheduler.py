@@ -37,13 +37,14 @@ def download_files(date: str) -> None:
     date (str): The date in the format 'YYYY-MM-DD'.
     """
     # Set up parameters for creating an instance of SimurgSource
+    server_url = "http://10.0.6.78:22580"
     protocol = Protocol.HTTPS
     host = "api.simurg.space"
     port = 443
     url_template = f"/datafiles/map_files?date={date}"
 
     # Create an instance of SimurgSource
-    data_source = SimurgSource(protocol, host, port, url_template, storage_path)
+    data_source = SimurgSource(server_url, protocol, host, port, url_template, storage_path)
     file_path = data_source.download(date)
 
     # Check the download success
@@ -127,9 +128,8 @@ if __name__ == "__main__":
     days_to_subtract = int(sys.argv[2])
     available_RAM = float(sys.argv[3])
 
-    # current_date = "2024-01-01"
     current_date = get_date(days_to_subtract)
-    #download_files(current_date)
+    download_files(current_date)
     directory_path = storage_path / "data" / current_date
 
     orchestrator = StreamerOrchestrator()
@@ -155,30 +155,3 @@ if __name__ == "__main__":
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         pass
-
-
-# import time
-# import paho.mqtt.client as mqtt_client
-# import random
-#
-# broker="broker.emqx.io"
-#
-# client = mqtt_client.Client(
-#    mqtt_client.CallbackAPIVersion.VERSION1,
-#    'isu1001230000'
-# )
-#
-# print("Connecting to broker",broker)
-# print(client.connect(broker))
-# client.loop_start()
-# print("Publishing")
-#
-# for i in range(10):
-#     state = "255000000000255000255000000000255000000000255"
-#     state = state[i:] + state[:i]
-#     print(f"state is {state}")
-#     client.publish("streamer/data", state)
-#     time.sleep(2)
-#
-# client.disconnect()
-# client.loop_stop()

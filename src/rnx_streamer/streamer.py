@@ -29,8 +29,13 @@ class Streamer:
         self.cfg_file = config_file
         self.server_url = server_url
         self.broker = broker
-        self.client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, 'isu1001230000')
-        print(self.client.connect(self.broker))
+        self.port = 8778
+        self.client = mqtt_client.Client(
+            mqtt_client.CallbackAPIVersion.VERSION2,
+            'isu100123000'
+        )
+        self.client.username_pw_set("mosquitto", "3SimurgMosquitto")
+        self.client.connect(self.broker, self.port, 60)
         self.client.loop_start()
 
         self._open_file()
@@ -57,15 +62,28 @@ class Streamer:
         self.reader = rnx(self.file)
         self.logger = setup_logger(f"Streamer_{self.file_name[:4]}")
         self.topic = f"streamer/data/{self.file_name[:4]}"
-        # self._share_activate_streamer()
+        self._share_activate_streamer()
 
     def _share_activate_streamer(self):
+        """
+        Send a POST request to the server to activate the streamer.
+
+        This function sends a POST request to the server's 'share_active_streamer/' endpoint
+        with the streamer's ID (the first four characters of the RINEX file name) in the request body.
+        It then logs the server's response.
+
+        Parameters:
+        self (Streamer): The instance of the Streamer class.
+
+        Returns:
+        None
+        """
         response = requests.post(f"{self.server_url}/share_active_streamer/",
                                  json={"streamer_id": self.file_name[:4]})
         if response.status_code == 200:
-            self.logger.info("Streamer registered successfully")
+            self.logger.info("Streamer successfully activated")
         else:
-            self.logger.error("Failed to register streamer:", response.json())
+            self.logger.error("Failed to activate streamer:", response.json())
 
     def _parsing(self):
         """
@@ -82,15 +100,15 @@ class Streamer:
             self.iterator = iter(self.reader)
 
         self.logger.info(f"Time now: {self.current_time}")
+        self.client.publish(self.topic, f"Time now: {self.current_time}", qos=2)
         try:
             while True:
                 tec = next(self.iterator)
                 tec_time = tec.timestamp.strftime("%H:%M:%S")
                 if tec_time == self.current_time:
                     message = f"{tec.satellite}: {tec.phase_tec} {tec.p_range_tec}"
-                    self.logger.info(message)
-                    # self.client.publish(self.topic, message)
-                    self.client.publish("streamer/data", message)
+                    # self.logger.info(message)
+                    self.client.publish(self.topic, self.file_name[:4] + ' ' + message, qos=2)
                 elif tec_time > self.current_time:
                     break
 

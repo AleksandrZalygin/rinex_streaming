@@ -98,12 +98,9 @@ class DataSource(ABC):
         """
 
     @abstractmethod
-    def get_sites_data(self) -> list:
+    def _share_download_site_name(self) -> str:
         """
-        Get the paths of downloaded data.
 
-        Returns:
-        list: A list of paths of downloaded data.
         """
 
 
@@ -259,11 +256,11 @@ class SimurgSource(DataSource):
             output_path = file_path.with_suffix("")
             subprocess.run(["CRX2RNX", str(file_path)], check=True)
             self.logger.info(f"Converted file: {output_path}")
+            self._share_download_site_name(output_path.name)  # Share the downloaded file with the server
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error converting file: {e}")
         except FileNotFoundError:
             self.logger.error("The `CRX2RNX` utility is not available.")
 
-    def get_download_sites_data(self, path: Path):
-        requests.post(f"{self.server_url}/upload_stations/",
-                      [str(file[:4]) for file in path])
+    def _share_download_site_name(self, name: str):
+        requests.post(f"{self.server_url}/upload_station/", name)
