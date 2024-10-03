@@ -17,6 +17,7 @@ class DataSource(ABC):
 
     def __init__(
         self,
+        server_url : str,
         protocol: Protocol,
         host: str,
         port: int,
@@ -33,6 +34,7 @@ class DataSource(ABC):
         url_template (str): The URL template for data retrieval.
         storage_path (Path): The path where downloaded data will be stored.
         """
+        self.server_url = server_url
         self.protocol = protocol
         self.session = requests.Session()
         self.host = host
@@ -96,12 +98,9 @@ class DataSource(ABC):
         """
 
     @abstractmethod
-    def get_sites_data(self) -> list:
+    def _share_download_site_name(self) -> str:
         """
-        Get the paths of downloaded data.
 
-        Returns:
-        list: A list of paths of downloaded data.
         """
 
 
@@ -257,17 +256,11 @@ class SimurgSource(DataSource):
             output_path = file_path.with_suffix("")
             subprocess.run(["CRX2RNX", str(file_path)], check=True)
             self.logger.info(f"Converted file: {output_path}")
+            self._share_download_site_name(output_path.name)  # Share the downloaded file with the server
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error converting file: {e}")
         except FileNotFoundError:
             self.logger.error("The `CRX2RNX` utility is not available.")
 
-    def get_sites_data(self) -> list:
-        """
-        Get the paths of downloaded data.
-
-        Returns:
-        list: A list of paths of downloaded data.
-        """
-        self.logger.info("Getting site data paths")
-        return [str(file) for file in self.storage_path.glob("*.zip")]
+    def _share_download_site_name(self, name: str):
+        requests.post(f"{self.server_url}/upload_station/", name)

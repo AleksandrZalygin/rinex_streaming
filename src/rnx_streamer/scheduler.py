@@ -37,13 +37,14 @@ def download_files(date: str) -> None:
     date (str): The date in the format 'YYYY-MM-DD'.
     """
     # Set up parameters for creating an instance of SimurgSource
+    server_url = "http://10.0.6.78:22580"
     protocol = Protocol.HTTPS
     host = "api.simurg.space"
     port = 443
     url_template = f"/datafiles/map_files?date={date}"
 
     # Create an instance of SimurgSource
-    data_source = SimurgSource(protocol, host, port, url_template, storage_path)
+    data_source = SimurgSource(server_url, protocol, host, port, url_template, storage_path)
     file_path = data_source.download(date)
 
     # Check the download success
@@ -127,7 +128,6 @@ if __name__ == "__main__":
     days_to_subtract = int(sys.argv[2])
     available_RAM = float(sys.argv[3])
 
-    # current_date = "2024-01-01"
     current_date = get_date(days_to_subtract)
     download_files(current_date)
     directory_path = storage_path / "data" / current_date

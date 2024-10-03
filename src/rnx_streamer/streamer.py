@@ -1,18 +1,16 @@
-"""
-Module to stream and parse GNSS TEC data from RINEX files.
-"""
-
 import sys
 import warnings
+import requests
 from pathlib import Path
 from datetime import datetime, timezone
+import paho.mqtt.client as mqtt_client
 from gnss_tec import rnx  # type: ignore
 from apscheduler.schedulers.blocking import BlockingScheduler  # type: ignore
-from logger import setup_logger
+from logger import setup_logger  # type: ignore
 
 
 class Streamer:
-    def __init__(self, config_file: Path):
+    def __init__(self, config_file: Path, server_url: str, broker: str):
         """
         Initialize the Streamer class instance.
 
@@ -22,13 +20,26 @@ class Streamer:
 
         Parameters:
         config_file (Path): Path to the configuration file.
+        broker (str): Address of the MQTT broker.
+        topic (str): MQTT topic to publish logs.
 
         Returns:
         None
         """
         self.cfg_file = config_file
+        self.server_url = server_url
+        self.broker = broker
+        self.port = 8778
+        self.client = mqtt_client.Client(
+            mqtt_client.CallbackAPIVersion.VERSION2,
+            'isu100123000'
+        )
+        self.client.username_pw_set("mosquitto", "3SimurgMosquitto")
+        self.client.connect(self.broker, self.port, 60)
+        self.client.loop_start()
+
         self._open_file()
-        self.iterator = None  # Attribute for storing the iterator
+        self.iterator = None
 
         self.scheduler = BlockingScheduler()
         self.scheduler.add_job(self._parsing, "cron", second="0,30")
@@ -50,14 +61,33 @@ class Streamer:
         self.file = open(self.file_path, "r", encoding="utf-8")
         self.reader = rnx(self.file)
         self.logger = setup_logger(f"Streamer_{self.file_name[:4]}")
+        self.topic = f"streamer/data/{self.file_name[:4]}"
+        self._share_activate_streamer()
+
+    def _share_activate_streamer(self):
+        """
+        Send a POST request to the server to activate the streamer.
+
+        This function sends a POST request to the server's 'share_active_streamer/' endpoint
+        with the streamer's ID (the first four characters of the RINEX file name) in the request body.
+        It then logs the server's response.
+
+        Parameters:
+        self (Streamer): The instance of the Streamer class.
+
+        Returns:
+        None
+        """
+        response = requests.post(f"{self.server_url}/share_active_streamer/",
+                                 json={"streamer_id": self.file_name[:4]})
+        if response.status_code == 200:
+            self.logger.info("Streamer successfully activated")
+        else:
+            self.logger.error("Failed to activate streamer:", response.json())
 
     def _parsing(self):
         """
         Process TEC data from the current RINEX file every 30 seconds.
-
-        Read the current time, initialize the iterator if it hasn't been initialized yet.
-        Process TEC data corresponding to the current time, and switch to a new file
-        if the current time exceeds the time in the current file.
 
         Parameters:
         None
@@ -70,18 +100,17 @@ class Streamer:
             self.iterator = iter(self.reader)
 
         self.logger.info(f"Time now: {self.current_time}")
+        self.client.publish(self.topic, f"Time now: {self.current_time}", qos=2)
         try:
             while True:
                 tec = next(self.iterator)
                 tec_time = tec.timestamp.strftime("%H:%M:%S")
                 if tec_time == self.current_time:
-                    self.logger.info(
-                        f"{tec.satellite}: {tec.phase_tec} {tec.p_range_tec}"
-                    )
+                    message = f"{tec.satellite}: {tec.phase_tec} {tec.p_range_tec}"
+                    # self.logger.info(message)
+                    self.client.publish(self.topic, self.file_name[:4] + ' ' + message, qos=2)
                 elif tec_time > self.current_time:
                     break
-                else:
-                    continue
 
         except StopIteration:
             self.logger.info("Switch to new file...")
@@ -91,9 +120,6 @@ class Streamer:
     def _switch_to_new_file(self):
         """
         Switch to a new RINEX file if available.
-
-        Open the configuration file, read the name of the new RINEX file,
-        close the current file, and initialize the RINEX reader instance for the new file.
 
         Parameters:
         None
@@ -116,17 +142,12 @@ class Streamer:
         """
         Start the scheduler to get and process data every 30 seconds.
 
-        Ignore debug warnings, open the specified RINEX file in the configuration file,
-        initialize and start the scheduler. In case of interruption (e.g., using Ctrl+C),
-        close the current RINEX file and pass control. At the end of the work, close the current RINEX file.
-
         Parameters:
         None
 
         Returns:
         None
         """
-        # Ignore debug warnings
         warnings.filterwarnings("ignore", category=UserWarning)
 
         try:
@@ -137,18 +158,23 @@ class Streamer:
             raise
         finally:
             self.file.close()
+            self.client.disconnect()
+            self.client.loop_stop()
 
 
 if __name__ == "__main__":
     streamer_logger = setup_logger("Streamer")
-    if len(sys.argv) != 2:
-        streamer_logger.error("Usage: python3 streamer.py <config_file>")
+    if len(sys.argv) != 4:
+        streamer_logger.error("Usage: python3 streamer.py <config_file> <broker> <topic>")
         sys.exit(1)
 
     config_file_path = Path(sys.argv[1])
+    server_url = sys.argv[2]
+    broker = sys.argv[3]
+
     if not config_file_path.is_file():
         streamer_logger.error(f"Config file {config_file_path} does not exist.")
         sys.exit(1)
 
-    streamer = Streamer(config_file_path)
+    streamer = Streamer(config_file_path, server_url, broker)
     streamer.get_30seconds_data()
