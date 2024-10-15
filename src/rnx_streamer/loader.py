@@ -232,7 +232,7 @@ class SimurgSource(DataSource):
     def _unzip_gz_file(self, file_path: Path):
         try:
             output_path = file_path.with_suffix("")
-            subprocess.run(["gunzip", str(file_path)], check=True)
+            subprocess.run(["gunzip", "-f", str(file_path)], check=True)
             self.logger.info(f"Unzipped file: {output_path}")
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error during .gz file unpacking: {e}")
@@ -244,7 +244,7 @@ class SimurgSource(DataSource):
     def _uncompress_z_file(self, file_path: Path):
         try:
             output_path = file_path.with_suffix("")
-            subprocess.run(["uncompress", str(file_path)], check=True)
+            subprocess.run(["uncompress", "-f", str(file_path)], check=True)
             self.logger.info(f"Uncompressed file: {output_path}")
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Error during .Z file unpacking: {e}")
@@ -254,7 +254,7 @@ class SimurgSource(DataSource):
     def _convert_crx_to_rnx(self, file_path: Path):
         try:
             output_path = file_path.with_suffix("")
-            subprocess.run(["CRX2RNX", str(file_path)], check=True)
+            subprocess.run(["CRX2RNX", "-f", str(file_path)], check=True)
             self.logger.info(f"Converted file: {output_path}")
             self._share_download_site_name(output_path.name)  # Share the downloaded file with the server
         except subprocess.CalledProcessError as e:
