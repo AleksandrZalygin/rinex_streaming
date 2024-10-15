@@ -59,10 +59,17 @@ class Streamer:
             self.file_path = Path(f.readline().strip())
         self.file_name = self.file_path.name
         self.file = open(self.file_path, "r", encoding="utf-8")
-        self.reader = rnx(self.file)
         self.logger = setup_logger(f"Streamer_{self.file_name[:4]}")
-        self.topic = f"streamer/data/{self.file_name[:4]}"
-        self._share_activate_streamer()
+
+        # try:
+        #     self.reader = rnx(self.file)
+        # except Exception as e:
+        #     self.logger.error(f"{self.file_name[:4]} is of non supported version")
+
+        self.reader = rnx(self.file)
+        if self.reader:
+            self.topic = f"streamer/data/{self.file_name[:4]}"
+            self._share_activate_streamer()
 
     def _share_activate_streamer(self):
         """
@@ -95,12 +102,15 @@ class Streamer:
         Returns:
         None
         """
+
+        site_name = self.file_name[:4]
+
         self.current_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
         if self.iterator is None:
             self.iterator = iter(self.reader)
 
-        self.logger.info(f"Time now: {self.current_time}")
-        self.client.publish(self.topic, f"Time now: {self.current_time}", qos=2)
+        self.logger.info(f"Start send {site_name}. {self.current_time}")
+        self.client.publish(self.topic, f"Start send {site_name}. {self.current_time}", qos=2)
         try:
             while True:
                 tec = next(self.iterator)
@@ -108,9 +118,12 @@ class Streamer:
                 if tec_time == self.current_time:
                     message = f"{tec.satellite}: {tec.phase_tec} {tec.p_range_tec}"
                     # self.logger.info(message)
-                    self.client.publish(self.topic, self.file_name[:4] + ' ' + message, qos=2)
+                    self.client.publish(self.topic, site_name + ' ' + message, qos=2)
+
                 elif tec_time > self.current_time:
                     break
+            self.logger.info(f"End send {site_name}. {self.current_time}")
+            self.client.publish(self.topic, f"End send {site_name}. {self.current_time}", qos=2)
 
         except StopIteration:
             self.logger.info("Switch to new file...")
@@ -165,7 +178,7 @@ class Streamer:
 if __name__ == "__main__":
     streamer_logger = setup_logger("Streamer")
     if len(sys.argv) != 4:
-        streamer_logger.error("Usage: python3 streamer.py <config_file> <broker> <topic>")
+        streamer_logger.error("Usage: python3 streamer.py <config_file> <server_url> <broker>")
         sys.exit(1)
 
     config_file_path = Path(sys.argv[1])

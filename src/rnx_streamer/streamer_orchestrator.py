@@ -59,6 +59,7 @@ class StreamerOrchestrator:
     def __init__(self):
         if not hasattr(self, "initialized"):  # Avoid reinitialization
             self.logger = setup_logger("StreamerOrchestrator")
+            # self.server_url = "http://10.0.6.78:22580"
             self.server_url = "http://127.0.0.1:8000"
             self.scheduler = BackgroundScheduler()
             self.scheduler.start()
@@ -224,11 +225,11 @@ class StreamerOrchestrator:
                     f"Command result: returncode={result.returncode}, stdout={result.stdout}, stderr={result.stderr}"
                 )
                 if result.returncode == 0:
-                    self.logger.info(
+                    self.logger.debug(
                         f"Streamer for {site_name} keep working. PID: {result.stdout.strip()}"
                     )
                 else:
-                    self.logger.info(f"Streamer for {site_name} is not working.")
+                    self.logger.warning(f"Streamer for {site_name} is not working.")
             except subprocess.CalledProcessError as e:
                 self.logger.error(
                     f"Error checking streamer status for {site_name}: {e}"
@@ -291,7 +292,7 @@ class StreamerOrchestrator:
                 )
                 self.logger.info(f"Streamer launched for {site_name} using subprocess.")
             except subprocess.CalledProcessError as e:
-                self.logger.error(f"Error launching streamer for {site_name}: {e}")
+                self.logger.error(f"{site_name} is of non supported version")
         elif mode == LaunchesModes.service:
             self.logger.info(f"Streamer launched for {site_name} using service mode.")
         elif mode == LaunchesModes.docker:

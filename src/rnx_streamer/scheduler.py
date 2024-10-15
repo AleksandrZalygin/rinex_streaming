@@ -37,7 +37,8 @@ def download_files(date: str) -> None:
     date (str): The date in the format 'YYYY-MM-DD'.
     """
     # Set up parameters for creating an instance of SimurgSource
-    server_url = "http://10.0.6.78:22580"
+    #server_url = "http://10.0.6.78:22580"
+    server_url = "http://127.0.0.1:8000"
     protocol = Protocol.HTTPS
     host = "api.simurg.space"
     port = 443
@@ -129,6 +130,7 @@ if __name__ == "__main__":
     available_RAM = float(sys.argv[3])
 
     current_date = get_date(days_to_subtract)
+
     download_files(current_date)
     directory_path = storage_path / "data" / current_date
 
@@ -146,7 +148,7 @@ if __name__ == "__main__":
         "cron",
         hour=23,
         minute=0,
-        args=[get_date(days_to_subtract), orchestrator, directory_path],
+        args=[get_date(days_to_subtract - 1), orchestrator, directory_path],
     )
 
     try:
