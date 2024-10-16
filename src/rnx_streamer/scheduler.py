@@ -106,16 +106,18 @@ def update_cfg_files(orchestrator: StreamerOrchestrator, directory_path: Path) -
 
 
 def scheduled_everyday_task(
-    date: str, orchestrator: StreamerOrchestrator, directory_path: Path
+    days_to_subtract: int, orchestrator: StreamerOrchestrator, storage_path: Path
 ) -> None:
     """
     Perform a scheduled task every day, which includes downloading files and updating configuration files.
 
     Args:
-    date (str): The date in the format 'YYYY-MM-DD'.
+    days_to_subtract (int): Time shift in past where data are taken.
     orchestrator (StreamerOrchestrator): The StreamerOrchestrator instance.
     directory_path (Path): The path to the directory containing the files.
     """
+    date = get_date(days_to_subtract)
+    directory_path = storage_path / "data" / date
     download_files(date)
     update_cfg_files(orchestrator, directory_path)
 
@@ -148,7 +150,7 @@ if __name__ == "__main__":
         "cron",
         hour=23,
         minute=0,
-        args=[get_date(days_to_subtract - 1), orchestrator, directory_path],
+        args=[days_to_subtract, orchestrator, storage_path],
     )
 
     try:
