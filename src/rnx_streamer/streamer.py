@@ -24,26 +24,28 @@ class Streamer:
         topic (str): MQTT topic to publish logs.
 
         Returns:
+
+
         None
         """
         self.cfg_file = config_file
         self.server_url = server_url
         self.broker = broker
-        self.port = 8778
+        self.port = 1883
         self.client = mqtt_client.Client(
             mqtt_client.CallbackAPIVersion.VERSION2,
-            'isu100123000'
+            f'isu100123000{str(self.cfg_file)[:-1]}'
         )
         self.client.username_pw_set("mosquitto", "3SimurgMosquitto")
         self.client.connect(self.broker, self.port, 60)
         self.client.loop_start()
 
-        self._open_file()
         self.iterator = None
-
+        self.reader = None
         self.scheduler = BlockingScheduler()
-        self.scheduler.add_job(self._parsing, "cron", second="0,30")
+        self._open_file()
 
+   
     def _open_file(self):
         """
         Open the configuration file, read the RINEX file name,
@@ -65,11 +67,30 @@ class Streamer:
         #     self.reader = rnx(self.file)
         # except Exception as e:
         #     self.logger.error(f"{self.file_name[:4]} is of non supported version")
-
-        self.reader = rnx(self.file)
-        if self.reader:
-            self.topic = f"streamer/data/{self.file_name[:4]}"
-            self._share_activate_streamer()
+        try:
+            self.reader = rnx(self.file)
+            if self.reader:
+                self.topic = f"streamer/data/{self.file_name[:4]}"
+                self._share_activate_streamer()
+            self.scheduler.add_job(self._parsing, "cron", second="0,30")
+        except ValueError as e:
+            if e.args and "Unknown file type" in e.args[0]:
+                self.logger.error(f"Unsupported file type for {self.file_name}. Check file content and extension")
+            else:
+                self.logger.critical(f"Unknown error when attempt to parse {self.file_name} \n {e}")
+                raise e
+        except Exception as e:
+            if e.args and "Unknown RINEX version" in e.args[0]:
+                self.logger.error(f"Could not parse file {self.file_name} due to {e.args[0]}. ")
+            else:
+                self.logger.critical(f"Unknown error when attempt to parse {self.file_name} \n {e}")
+                raise e
+        #except ValueError as e:
+        #    if e.args and "Unknown file type" in e.args[0]:
+        #        self.logger.error(f"Unsupported file type for {self.file_name}. Check file content and extension")
+        #    else:
+        #        self.logger.critical(f"Unknown error when attempt to parse {self.file_name} \n {e}")
+        #        raise e
 
     def _share_activate_streamer(self):
         """
@@ -88,9 +109,9 @@ class Streamer:
         response = requests.post(f"{self.server_url}/share_active_streamer/",
                                  json={"streamer_id": self.file_name[:4]})
         if response.status_code == 200:
-            self.logger.info("Streamer successfully activated")
+            self.logger.info(f"Streamer {self.file_name[:4]} successfully reported it is activate")
         else:
-            self.logger.error("Failed to activate streamer:", response.json())
+            self.logger.error(f"Streamer failed to report it is activate. See details:{response.json()}")
 
     def _parsing(self):
         """
@@ -164,7 +185,7 @@ class Streamer:
         warnings.filterwarnings("ignore", category=UserWarning)
 
         try:
-            self.logger.info(f"Starting scheduler... {self.file_path}")
+            self.logger.info(f"Starting streaming {self.file_path}")
             self.scheduler.start()
         except (KeyboardInterrupt, SystemExit):
             self.file.close()
