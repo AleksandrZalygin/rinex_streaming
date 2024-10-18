@@ -163,10 +163,9 @@ class SimurgSource(DataSource):
 
         with open(file_path, "wb") as f:
             self.logger.info(f"Downloading {file_path}")
-            response = requests.get(
-                f"{self.protocol.value}://{self.host}:{self.port}/datafiles/map_files?date={date}",
-                stream=True,
-            )
+            url = f"{self.protocol.value}://{self.host}:{self.port}/datafiles/map_files?date={date}"
+            self.logger.info(f"Trying load from {url}")
+            response = requests.get(url, stream=True)
             total_length = response.headers.get("content-length")
             if total_length is None:  # no content length header
                 f.write(response.content)
@@ -211,8 +210,8 @@ class SimurgSource(DataSource):
                 self._uncompress_z_file(item)
 
         for item in extract_path.iterdir():
-            self.logger.info(f"Processing compact RINEX candidate: {item}")
             if item.suffix == ".crx":
+                self.logger.info(f"Processing compact RINEX candidate: {item}")
                 self._convert_crx_to_rnx(item)
 
     def _unzip_zip_file(self, file_path: Path):
@@ -232,6 +231,9 @@ class SimurgSource(DataSource):
     def _unzip_gz_file(self, file_path: Path):
         try:
             output_path = file_path.with_suffix("")
+            if output_path.exists():
+                self.logger.info(f"Unzipped version for {file_path} - {output_path} exists. Skip")
+                return
             subprocess.run(["gunzip", "-f", str(file_path)], check=True)
             self.logger.info(f"Unzipped file: {output_path}")
         except subprocess.CalledProcessError as e:
@@ -244,6 +246,9 @@ class SimurgSource(DataSource):
     def _uncompress_z_file(self, file_path: Path):
         try:
             output_path = file_path.with_suffix("")
+            if output_path.exists():
+                self.logger.info(f"Unzipped version for {file_path} - {output_path} exists. Skip")
+                return
             subprocess.run(["uncompress", "-f", str(file_path)], check=True)
             self.logger.info(f"Uncompressed file: {output_path}")
         except subprocess.CalledProcessError as e:
@@ -254,6 +259,16 @@ class SimurgSource(DataSource):
     def _convert_crx_to_rnx(self, file_path: Path):
         try:
             output_path = file_path.with_suffix("")
+            if file_path.suffix == ".crx":
+                rnx_path = output_path.parent / (str(output_path.stem) + ".rnx")
+            elif file_path.suffix and file_path.suffix[-1] == "d":
+                rnx_path = output_path.parent / (str(output_path.stem) + output_path.suffix[:-1] + "o")
+            else:
+                self.logger.error(f"Failed to defibe file type for {file_path}")
+                return
+            if rnx_path.exists():
+                self.logger.info(f"Full version for {file_path} - {rnx_path} exists. Skip")
+                return
             subprocess.run(["CRX2RNX", "-f", str(file_path)], check=True)
             self.logger.info(f"Converted file: {output_path}")
             self._share_download_site_name(output_path.name)  # Share the downloaded file with the server
