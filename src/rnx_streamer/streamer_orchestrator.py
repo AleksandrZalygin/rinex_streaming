@@ -72,6 +72,7 @@ class StreamerOrchestrator:
             self.storage_path = None
             self.initialized = True
             self.sites = {}
+            self.streamer_pids = {}
 
     def set_storage_path(self, storage_path: Path):
         """
@@ -121,16 +122,16 @@ class StreamerOrchestrator:
             or re.search(r"A-Z", site_name)
             or not site_name.isupper()
         ):
-            self.logger.error("Incorrect station name")
+            self.logger.error(f"Incorrect station name {site_name}")
         else:
             if site_name in self.sites:
-                self.logger.warning("Station already added")
+                self.logger.warning(f"Station {site_name} is already added")
             else:
                 cfg_file = self._create_cfg_file(site_name, file_path)
                 streamer = StreamerInfo(site_name, cfg_file)
                 self._register_streamer(site_name, streamer)
                 self.sites[site_name] = streamer
-                self.logger.info("Station %s added successfully", site_name)
+                self.logger.info(f"Station {site_name} added successfully. It can be launched know.")
 
     def _register_streamer(self, site_name: str, streamer: StreamerInfo):
         """
@@ -150,9 +151,9 @@ class StreamerOrchestrator:
         response = requests.post(f"{self.server_url}/register_streamer/",
                                  json={"streamer_id": site_name, "cfg_file": str(streamer.cfg_file)})
         if response.status_code == 200:
-            self.logger.info("Streamer registered successfully")
+            self.logger.info(f"Station {site_name} registered successfully at {self.server_url}")
         else:
-            self.logger.error("Failed to register streamer:", response.json())
+            self.logger.error(f"Failed to register streamer: {response.json()}")
 
     def _create_cfg_file(self, site_name: str, file_path: Path):
         """
@@ -198,7 +199,9 @@ class StreamerOrchestrator:
         Returns:
         None
         """
+        self.logger.info(f"Attempt to change cfg_file for {site_name}")
         with open(self.sites[site_name].cfg_file, "w", encoding="utf-8") as f:
+            self.logger.info(f"Writing new rinex path {file_path} for {site_name}")
             f.write(str(file_path))
 
     def check_streamer_status(self, site_name: str, mode: LaunchesModes):
@@ -286,11 +289,13 @@ class StreamerOrchestrator:
         """
         if mode == LaunchesModes.subprocess:
             try:
-                subprocess.run(
-                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file), self.server_url, "simurg.space"],
-                    check=True,
+                self.logger.info(f"Try to launch streamer for {site_name} in mode {mode}")
+                streamer_process = subprocess.Popen(
+                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file), self.server_url, "127.0.0.1"],
                 )
-                self.logger.info(f"Streamer launched for {site_name} using subprocess.")
+                pid = streamer_process.pid
+                self.streamer_pids[site_name] = pid
+                self.logger.info(f"Streamer launched for {site_name} using subprocess with PID {pid}.")
             except subprocess.CalledProcessError as e:
                 self.logger.error(f"{site_name} is of non supported version")
         elif mode == LaunchesModes.service:
@@ -310,17 +315,11 @@ class StreamerOrchestrator:
         Returns:
         None
         """
-        with ThreadPoolExecutor(max_workers=len(self.sites)) as executor:
-            futures = {
-                executor.submit(self.launch_streamer, site_name, mode): site_name
-                for site_name in self.sites
-            }
-            for future in as_completed(futures):
-                site_name = futures[future]
-                try:
-                    future.result()
-                    self.logger.info(f"Streamer successfully launched for {site_name}")
-                except Exception as exc:
-                    self.logger.error(
-                        f"Error launching streamer for {site_name}: {exc}"
-                    )
+        number_of_streamers = 0
+        for site_name in self.sites:
+            try:
+                self.launch_streamer(site_name, mode)
+                number_of_streamers += 1
+            except Exception as e:
+                info.critical(f"Unknown error while streamer activating for {site_name} \n {e}")
+        self.logger.info(f"Launched {number_of_streamers} streamers. Done launching")

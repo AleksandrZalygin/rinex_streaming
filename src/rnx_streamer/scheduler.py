@@ -50,13 +50,11 @@ def download_files(date: str) -> None:
 
     # Check the download success
     if data_source.check_download(file_path):
-        logger.info(f"File downloaded successfully: {file_path}")
+        logger.info(f"File downloaded successfully: {file_path}. Try to unpack...")
         # Unpack the downloaded file
         data_source.unpack(file_path)
     else:
         logger.error("Download failed.")
-
-    logger.info("Downloading files...")
 
 
 def orchestrate_first_launch(
@@ -75,14 +73,16 @@ def orchestrate_first_launch(
     Returns:
     None: The function does not return any value.
     """
+    logger.info(f"Check files in {directory_path}")
     for file in os.listdir(directory_path):
+        logger.info(f"Candidate for streaming {file}")
         if file.endswith(".rnx"):
             if psutil.virtual_memory().used < psutil.virtual_memory().total * (available_RAM / 100):
                 orchestrator.add_station(
                     file[0:4], os.path.abspath(f"{directory_path}/{file}")
                 )
             else:
-                logger.info(
+                logger.critical(
                     f"Not adding station {file[0:4]} as it exceeds the memory limit."
                 )
                 logger.info("Memory usage is low. Stopping the process.")
@@ -97,28 +97,49 @@ def update_cfg_files(orchestrator: StreamerOrchestrator, directory_path: Path) -
     orchestrator (StreamerOrchestrator): The StreamerOrchestrator instance.
     directory_path (Path): The path to the directory containing the files.
     """
+    if not orchestrator.sites:
+       logger.error(f"Orchestrator is not awear of any streamers. Register stations first.")
+       return
+    logger.info(f"Known streamers are: {orchestrator.sites}")
     for site_name in orchestrator.sites:
+        logger.info(f"Changing config to {site_name}")
         for file in os.listdir(directory_path):
             if file.endswith(".rnx") and file[0:4] == site_name:
+                fpath = directory_path / file
+                logger.info(f"Changing config to streamer {site_name}, with {fpath}")
                 orchestrator.update_cfg_file(
-                    site_name, os.path.abspath(f"{directory_path}/{file}")
+                    site_name, os.path.abspath(str(fpath))
                 )
 
 
 def scheduled_everyday_task(
-    date: str, orchestrator: StreamerOrchestrator, directory_path: Path
+    days_to_subtract: int, 
+    orchestrator: StreamerOrchestrator, 
+    storage_path: Path,
+    available_RAM: float
 ) -> None:
     """
     Perform a scheduled task every day, which includes downloading files and updating configuration files.
 
     Args:
-    date (str): The date in the format 'YYYY-MM-DD'.
+    days_to_subtract (int): Time shift in past where data are taken.
     orchestrator (StreamerOrchestrator): The StreamerOrchestrator instance.
     directory_path (Path): The path to the directory containing the files.
     """
+    ping_file = Path(storage_path / ("task_started_" + str(datetime.now())))
+    ping_file.touch()
+    logger.info("Started new task...")
+    date = get_date(days_to_subtract - 1) # -1 to get data for next day compared to day job run at
+    directory_path = storage_path / "data" / date
+    logger.info(f"For date {date} use {directory_path}. Start downloading...")
     download_files(date)
+    logger.info(f"Updating config files for streamers.")
     update_cfg_files(orchestrator, directory_path)
+    logger.info("Ended task")
 
+
+def ping_task():
+    logger.info("Sheduler is working")
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
@@ -133,22 +154,33 @@ if __name__ == "__main__":
 
     download_files(current_date)
     directory_path = storage_path / "data" / current_date
-
+    os.makedirs(directory_path, exist_ok=True)
+    logger.info("Create orchestrator")
     orchestrator = StreamerOrchestrator()
     orchestrator.set_storage_path(storage_path)
+    logger.info("Register stations")
     orchestrate_first_launch(orchestrator, directory_path, available_RAM)
+    logger.info("Try to launch streamers")
     orchestrator.launch_all_streamers(LaunchesModes.subprocess)
 
     # Create an instance of the scheduler
     scheduler = BlockingScheduler()
 
     # Schedule the execution of the download_files function every day at a specific time
+    logger.info("Adding every day task")
     scheduler.add_job(
         scheduled_everyday_task,
         "cron",
         hour=23,
         minute=0,
-        args=[get_date(days_to_subtract - 1), orchestrator, directory_path],
+        args=[days_to_subtract, orchestrator, storage_path, available_RAM],
+    )
+
+    scheduler.add_job(
+        ping_task,
+        "cron",
+        hour="*",
+        minute="*"
     )
 
     try:
