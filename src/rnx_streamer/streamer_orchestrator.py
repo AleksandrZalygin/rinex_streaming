@@ -1,7 +1,9 @@
+import os
 import re
 import subprocess
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
 
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
@@ -10,6 +12,9 @@ from requests import Response
 from launches_modes import LaunchesModes
 from logger import setup_logger
 
+
+
+load_dotenv()
 
 class StreamerInfo:
     """
@@ -59,8 +64,7 @@ class StreamerOrchestrator:
     def __init__(self):
         if not hasattr(self, "initialized"):  # Avoid reinitialization
             self.logger = setup_logger("StreamerOrchestrator")
-            # self.server_url = "http://10.0.6.78:22580"
-            self.server_url = "http://127.0.0.1:8000"
+            self.server_url = os.getenv("SERVER_URL")
             self.scheduler = BackgroundScheduler()
             self.scheduler.start()
             self.scheduler.add_job(
@@ -75,31 +79,9 @@ class StreamerOrchestrator:
             self.streamer_pids = {}
 
     def set_storage_path(self, storage_path: Path):
-        """
-        Set the storage path for the streamer orchestrator.
-
-        Parameters:
-        storage_path (Path): The path where the configuration files will be stored.
-
-        Returns:
-        None
-        """
         self.storage_path = storage_path  # type: ignore
 
     def _get_all_stations(self) -> list:  # type: ignore
-        """
-        Fetch all streamer stations from the server.
-
-        This method sends a GET request to the server to retrieve a list of all streamer stations.
-        If the request is successful (status code 200), it returns the response data as a list.
-        If the request fails (status code other than 200), it logs an error message and returns an empty list.
-
-        Parameters:
-        None
-
-        Returns:
-        list: A list of streamer station names. If the request fails, returns an empty list.
-        """
         response = requests.get(f"{self.server_url}/all_streamers/")
         if response.status_code == 200:
             return response.json()
@@ -107,16 +89,6 @@ class StreamerOrchestrator:
             self.logger.error("Failed to get all streamers:", response.json())
 
     def add_station(self, site_name: str, file_path: Path):
-        """
-        Add a new station to the orchestrator.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-        file_path (str): The path to the RINEX file for the streamer.
-
-        Returns:
-        None
-        """
         if (
             len(site_name) != 4
             or re.search(r"A-Z", site_name)
@@ -134,20 +106,6 @@ class StreamerOrchestrator:
                 self.logger.info(f"Station {site_name} added successfully. It can be launched know.")
 
     def _register_streamer(self, site_name: str, streamer: StreamerInfo):
-        """
-        Register a streamer with the server using the provided site name and streamer information.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-        streamer (StreamerInfo): An instance of StreamerInfo containing the configuration file path.
-
-        Returns:
-        None
-
-        This method sends a POST request to the server's registration endpoint with the site name and
-        configuration file path. If the registration is successful (status code 200), it logs an info message.
-        If the registration fails (status code other than 200), it logs an error message along with the server's response.
-        """
         response = requests.post(f"{self.server_url}/register_streamer/",
                                  json={"streamer_id": site_name, "cfg_file": str(streamer.cfg_file)})
         if response.status_code == 200:
@@ -156,16 +114,6 @@ class StreamerOrchestrator:
             self.logger.error(f"Failed to register streamer: {response.json()}")
 
     def _create_cfg_file(self, site_name: str, file_path: Path):
-        """
-        Create a configuration file for a streamer station.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-        file_path (str): The path to the RINEX file for the streamer.
-
-        Returns:
-        str: The path to the created configuration file.
-        """
         cfg_dir = self.storage_path / "data/cfg"
         if not cfg_dir.exists():
             cfg_dir.mkdir()
@@ -175,46 +123,17 @@ class StreamerOrchestrator:
         return cfg_file
 
     def _read_cfg_file(self, site_name: str) -> str:
-        """
-        Read the configuration file for a streamer station.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-
-        Returns:
-        str: The content of the configuration file.
-        """
         with open(self.sites[site_name].cfg_file, "r", encoding="utf-8") as f:
             rinex_path = f.readline()
         return rinex_path
 
     def update_cfg_file(self, site_name: str, file_path: Path):
-        """
-        Update the configuration file for a streamer station.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-        file_path (str): The new path to the RINEX file for the streamer.
-
-        Returns:
-        None
-        """
         self.logger.info(f"Attempt to change cfg_file for {site_name}")
         with open(self.sites[site_name].cfg_file, "w", encoding="utf-8") as f:
             self.logger.info(f"Writing new rinex path {file_path} for {site_name}")
             f.write(str(file_path))
 
     def check_streamer_status(self, site_name: str, mode: LaunchesModes):
-        """
-        Check the status of a streamer for a given site and mode.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-        mode (LaunchesModes): The mode in which the streamer should be launched.
-
-        Returns:
-        None
-        """
         self.logger.debug(f"Checking streamer status for {site_name} in mode {mode}")
         if mode == LaunchesModes.subprocess:
             try:
@@ -263,35 +182,16 @@ class StreamerOrchestrator:
             self.logger.error("Invalid mode")
 
     def check_all_streamer_statuses(self, mode: LaunchesModes):
-        """
-        Check the status of all streamers for a given mode.
-
-        Parameters:
-        mode (LaunchesModes): The mode in which the streamers should be launched.
-
-        Returns:
-        None
-        """
         if self.sites:
             for site_name in self.sites:
                 self.check_streamer_status(site_name, mode)
 
     def launch_streamer(self, site_name: str, mode: LaunchesModes):
-        """
-        Launch a streamer for a given site and mode.
-
-        Parameters:
-        site_name (str): The unique identifier for the streamer station.
-        mode (LaunchesModes): The mode in which the streamer should be launched.
-
-        Returns:
-        None
-        """
         if mode == LaunchesModes.subprocess:
             try:
                 self.logger.info(f"Try to launch streamer for {site_name} in mode {mode}")
                 streamer_process = subprocess.Popen(
-                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file), self.server_url, "127.0.0.1"],
+                    ["python3", "streamer.py", Path(self.sites[site_name].cfg_file)],
                 )
                 pid = streamer_process.pid
                 self.streamer_pids[site_name] = pid

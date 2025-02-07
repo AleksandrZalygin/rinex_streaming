@@ -51,7 +51,7 @@ def upload_station(upload_file: StreamerID):
     stations.append(upload_file)
     return {"message": "Station uploaded successfully", "station": upload_file}
 
-# if __name__ == "__main__":
-#     import uvicorn
-#
-#     uvicorn.run("src.rnx_streamer.API_server:app", host="0.0.0.0", port=8000, reload=True)
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("src.rnx_streamer.API_server:app", host="0.0.0.0", port=8000, reload=True)

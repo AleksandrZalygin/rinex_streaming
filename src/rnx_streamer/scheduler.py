@@ -3,6 +3,7 @@ import sys
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from dotenv import load_dotenv
 
 import psutil  # type: ignore
 from apscheduler.schedulers.blocking import BlockingScheduler  # type: ignore
@@ -14,6 +15,8 @@ from logger import setup_logger  # type: ignore
 
 # Set up logger
 logger = setup_logger("Scheduler")
+
+load_dotenv()
 
 
 def get_date(days: int) -> str:
@@ -37,11 +40,10 @@ def download_files(date: str) -> None:
     date (str): The date in the format 'YYYY-MM-DD'.
     """
     # Set up parameters for creating an instance of SimurgSource
-    #server_url = "http://10.0.6.78:22580"
-    server_url = "http://127.0.0.1:8000"
+    server_url = os.getenv("SERVER_URL")
     protocol = Protocol.HTTPS
-    host = "api.simurg.space"
-    port = 443
+    host = os.getenv("SOURCE_HOST")
+    port = os.getenv("SOURCE_PORT")
     url_template = f"/datafiles/map_files?date={date}"
 
     # Create an instance of SimurgSource
@@ -142,15 +144,12 @@ def ping_task():
     logger.info("Sheduler is working")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        logger.error("Usage: python scheduler.py <storage_path> <days_to_subtract> <available_RAM>")
-        sys.exit(1)
 
-    storage_path = Path(sys.argv[1])
-    days_to_subtract = int(sys.argv[2])
-    available_RAM = float(sys.argv[3])
+    storage_path = Path(os.getenv("STORAGE_PATH"))
+    days_to_subtract = int(os.getenv("DAYS_TO_SUBTRACT"))
+    available_RAM = int(os.getenv("AVAILABLE_RAM"))
 
-    current_date = get_date(days_to_subtract)
+    current_date = get_date(int(days_to_subtract))
 
     download_files(current_date)
     directory_path = storage_path / "data" / current_date
@@ -172,7 +171,7 @@ if __name__ == "__main__":
         scheduled_everyday_task,
         "cron",
         hour=23,
-        minute=0,
+        minute=00,
         args=[days_to_subtract, orchestrator, storage_path, available_RAM],
     )
 
@@ -187,5 +186,6 @@ if __name__ == "__main__":
         # Start the scheduler
         logger.info("Starting the scheduler...")
         scheduler.start()
+
     except (KeyboardInterrupt, SystemExit):
         pass

@@ -4,9 +4,10 @@ import random
 
 import requests
 
-broker="simurg.space"
-port = 8778
+# broker="simurg.space"
+# port = 8778
 server_url = "http://127.0.0.1:8000"
+broker="broker.emqx.io"
 
 def on_message(client, userdata, message):
     data = str(message.payload.decode("utf-8"))
@@ -21,15 +22,25 @@ def get_all_stations() -> list:  # type: ignore
 all_stations = get_all_stations()
 count_stations = int(input("count stations: "))
 print(all_stations)
+
+
+# client = mqtt_client.Client(
+#     mqtt_client.CallbackAPIVersion.VERSION2,
+#     'isu100123'
+# )
+
 client = mqtt_client.Client(
-    mqtt_client.CallbackAPIVersion.VERSION2,
-    'isu100123'
+   mqtt_client.CallbackAPIVersion.VERSION2,
+   'isu100123'
 )
-client.username_pw_set("mosquitto", "3SimurgMosquitto")
+
+
+# client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 client.on_message=on_message
 
-print("Connecting to broker",broker)
-client.connect(broker, port, 60)
+print("Connecting to broker", broker)
+# client.connect(broker, port, 60)
+client.connect(broker)
 client.loop_start()
 print("Subcribing")
 i = 0

@@ -1,3 +1,4 @@
+import os
 import sys
 import warnings
 import requests
@@ -7,10 +8,14 @@ import paho.mqtt.client as mqtt_client
 from gnss_tec import rnx  # type: ignore
 from apscheduler.schedulers.blocking import BlockingScheduler  # type: ignore
 from logger import setup_logger  # type: ignore
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 class Streamer:
-    def __init__(self, config_file: Path, server_url: str, broker: str):
+    def __init__(self, config_file: Path):
         """
         Initialize the Streamer class instance.
 
@@ -29,15 +34,20 @@ class Streamer:
         None
         """
         self.cfg_file = config_file
-        self.server_url = server_url
-        self.broker = broker
-        self.port = 1883
+        self.server_url = os.getenv("SERVER_URL")
+        self.broker = os.getenv("MQTT_BROKER")
+        self.port = os.getenv("MQTT_PORT")
+        # self.client = mqtt_client.Client(
+        #     mqtt_client.CallbackAPIVersion.VERSION2,
+        #     f'isu100123000{str(self.cfg_file)[:-1]}'
+        # )
         self.client = mqtt_client.Client(
-            mqtt_client.CallbackAPIVersion.VERSION2,
-            f'isu100123000{str(self.cfg_file)[:-1]}'
+           mqtt_client.CallbackAPIVersion.VERSION1,
+           'isu10012300'
         )
-        self.client.username_pw_set("mosquitto", "3SimurgMosquitto")
-        self.client.connect(self.broker, self.port, 60)
+        self.client.username_pw_set(os.getenv("MQTT_USERNAME"), os.getenv("MQTT_PASSWORD"))
+        # self.client.connect(self.broker, self.port, 60)
+        self.client.connect(self.broker)
         self.client.loop_start()
 
         self.iterator = None
@@ -91,7 +101,6 @@ class Streamer:
         #    else:
         #        self.logger.critical(f"Unknown error when attempt to parse {self.file_name} \n {e}")
         #        raise e
-
     def _share_activate_streamer(self):
         """
         Send a POST request to the server to activate the streamer.
@@ -138,7 +147,7 @@ class Streamer:
                 tec_time = tec.timestamp.strftime("%H:%M:%S")
                 if tec_time == self.current_time:
                     message = f"{tec.satellite}: {tec.phase_tec} {tec.p_range_tec}"
-                    # self.logger.info(message)
+                    self.logger.info(message)
                     self.client.publish(self.topic, site_name + ' ' + message, qos=2)
 
                 elif tec_time > self.current_time:
@@ -192,23 +201,21 @@ class Streamer:
             raise
         finally:
             self.file.close()
-            self.client.disconnect()
-            self.client.loop_stop()
+            #self.client.disconnect()
+            #self.client.loop_stop()
 
 
 if __name__ == "__main__":
     streamer_logger = setup_logger("Streamer")
-    if len(sys.argv) != 4:
-        streamer_logger.error("Usage: python3 streamer.py <config_file> <server_url> <broker>")
+    if len(sys.argv) != 2:
+        streamer_logger.error("Usage: python3 streamer.py <config_file>")
         sys.exit(1)
 
     config_file_path = Path(sys.argv[1])
-    server_url = sys.argv[2]
-    broker = sys.argv[3]
 
     if not config_file_path.is_file():
         streamer_logger.error(f"Config file {config_file_path} does not exist.")
         sys.exit(1)
 
-    streamer = Streamer(config_file_path, server_url, broker)
+    streamer = Streamer(config_file_path)
     streamer.get_30seconds_data()

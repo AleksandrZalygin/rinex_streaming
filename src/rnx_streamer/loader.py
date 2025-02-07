@@ -20,7 +20,7 @@ class DataSource(ABC):
         server_url : str,
         protocol: Protocol,
         host: str,
-        port: int,
+        port: str,
         url_template: str,
         storage_path: Path,
     ):
