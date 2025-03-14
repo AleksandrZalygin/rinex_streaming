@@ -1,6 +1,8 @@
 import os
 import sys
 import warnings
+
+import pika
 import requests
 from pathlib import Path
 from datetime import datetime, timezone
@@ -37,18 +39,43 @@ class Streamer:
         self.server_url = os.getenv("SERVER_URL")
         self.broker = os.getenv("MQTT_BROKER")
         self.port = os.getenv("MQTT_PORT")
+
+        # # self.client = mqtt_client.Client(
+        # #     mqtt_client.CallbackAPIVersion.VERSION2,
+        # #     f'isu100123000{str(self.cfg_file)[:-1]}'
+        # # )
         # self.client = mqtt_client.Client(
-        #     mqtt_client.CallbackAPIVersion.VERSION2,
-        #     f'isu100123000{str(self.cfg_file)[:-1]}'
+        #    mqtt_client.CallbackAPIVersion.VERSION1,
+        #    'isu10012300'
         # )
-        self.client = mqtt_client.Client(
-           mqtt_client.CallbackAPIVersion.VERSION1,
-           'isu10012300'
+        # self.client.username_pw_set(os.getenv("MQTT_USERNAME"), os.getenv("MQTT_PASSWORD"))
+        # # self.client.connect(self.broker, self.port, 60)
+        # self.client.connect(self.broker)
+        # self.client.loop_start()
+
+        # RabbitMQ
+        # Initial
+        self.rabbitmq_host = os.getenv("RABBITMQ_HOST", "localhost")
+        self.rabbitmq_port = int(os.getenv("RABBITMQ_PORT", 5672))
+        self.rabbitmq_user = os.getenv("RABBITMQ_USER", "guest")
+        self.rabbitmq_password = os.getenv("RABBITMQ_PASSWORD", "guest")
+
+        # Connecttiion
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=self.rabbitmq_host,
+                port=self.rabbitmq_port,
+                credentials=pika.PlainCredentials(self.rabbitmq_user, self.rabbitmq_password)
+            )
         )
-        self.client.username_pw_set(os.getenv("MQTT_USERNAME"), os.getenv("MQTT_PASSWORD"))
-        # self.client.connect(self.broker, self.port, 60)
-        self.client.connect(self.broker)
-        self.client.loop_start()
+        self.channel = connection.channel()
+
+        # Create a queue with a TTL of 24 hours (in milliseconds)
+        self.queue_name = "tec_data"
+        self.channel.queue_declare(
+            queue=self.queue_name,
+            arguments={"x-message-ttl": 86400000}  # 24 часа в миллисекундах
+        )
 
         self.iterator = None
         self.reader = None
@@ -101,6 +128,7 @@ class Streamer:
         #    else:
         #        self.logger.critical(f"Unknown error when attempt to parse {self.file_name} \n {e}")
         #        raise e
+
     def _share_activate_streamer(self):
         """
         Send a POST request to the server to activate the streamer.
@@ -139,8 +167,14 @@ class Streamer:
         if self.iterator is None:
             self.iterator = iter(self.reader)
 
-        self.logger.info(f"Start send {site_name}. {self.current_time}")
-        self.client.publish(self.topic, f"Start send {site_name}. {self.current_time}", qos=2)
+        message = f"Start send {site_name}. {self.current_time}"
+        self.logger.info(message)
+        # self.client.publish(self.topic, f"Start send {site_name}. {self.current_time}", qos=2)
+        self.channel.basic_publish(
+            exchange="",
+            routing_key=self.queue_name,
+            body=message
+        )
         try:
             while True:
                 tec = next(self.iterator)
@@ -148,12 +182,23 @@ class Streamer:
                 if tec_time == self.current_time:
                     message = f"{tec.satellite}: {tec.phase_tec} {tec.p_range_tec}"
                     self.logger.info(message)
-                    self.client.publish(self.topic, site_name + ' ' + message, qos=2)
+                    # self.client.publish(self.topic, site_name + ' ' + message, qos=2)
+                    self.channel.basic_publish(
+                        exchange="",
+                        routing_key=self.queue_name,
+                        body=message
+                    )
 
                 elif tec_time > self.current_time:
                     break
-            self.logger.info(f"End send {site_name}. {self.current_time}")
-            self.client.publish(self.topic, f"End send {site_name}. {self.current_time}", qos=2)
+            message = f"End send {site_name}. {self.current_time}"
+            self.logger.info(message)
+            # self.client.publish(self.topic, f"End send {site_name}. {self.current_time}", qos=2)
+            self.channel.basic_publish(
+                exchange="",
+                routing_key=self.queue_name,
+                body=message
+            )
 
         except StopIteration:
             self.logger.info("Switch to new file...")
