@@ -75,6 +75,18 @@ def orchestrate_first_launch(
     Returns:
     None: The function does not return any value.
     """
+
+    # --- Временные отладочные строки ---
+    # 1. Выводим абсолютный путь, который видит Python
+    abs_path = directory_path.resolve()
+    logger.info(f"Absolute path being checked: {abs_path}")
+    
+    # 2. Проверяем, существует ли директория
+    if not abs_path.is_dir():
+        logger.error(f"Directory DOES NOT EXIST: {abs_path}")
+        return
+    # -----------------------------------
+
     logger.info(f"Check files in {directory_path}")
     for file in os.listdir(directory_path):
         logger.info(f"Candidate for streaming {file}")
@@ -145,13 +157,13 @@ def ping_task():
 
 if __name__ == "__main__":
 
-    storage_path = Path(os.getenv("STORAGE_PATH"))
+    storage_path = Path(os.getenv("STORAGE_PATH")).expanduser()
     days_to_subtract = int(os.getenv("DAYS_TO_SUBTRACT"))
     available_RAM = int(os.getenv("AVAILABLE_RAM"))
 
     current_date = get_date(int(days_to_subtract))
 
-    download_files(current_date)
+    #download_files(current_date)
     directory_path = storage_path / "data" / current_date
     os.makedirs(directory_path, exist_ok=True)
     logger.info("Create orchestrator")
