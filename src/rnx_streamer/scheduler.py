@@ -75,18 +75,6 @@ def orchestrate_first_launch(
     Returns:
     None: The function does not return any value.
     """
-
-    # --- Временные отладочные строки ---
-    # 1. Выводим абсолютный путь, который видит Python
-    abs_path = directory_path.resolve()
-    logger.info(f"Absolute path being checked: {abs_path}")
-    
-    # 2. Проверяем, существует ли директория
-    if not abs_path.is_dir():
-        logger.error(f"Directory DOES NOT EXIST: {abs_path}")
-        return
-    # -----------------------------------
-
     logger.info(f"Check files in {directory_path}")
     for file in os.listdir(directory_path):
         logger.info(f"Candidate for streaming {file}")
@@ -143,7 +131,8 @@ def scheduled_everyday_task(
     ping_file = Path(storage_path / ("task_started_" + str(datetime.now())))
     ping_file.touch()
     logger.info("Started new task...")
-    date = get_date(days_to_subtract - 1) # -1 to get data for next day compared to day job run at
+    # TEMPORARY: Keep the same day for testing (normally would be days_to_subtract - 1)
+    date = get_date(days_to_subtract)  # Stay on the same day instead of advancing
     directory_path = storage_path / "data" / date
     logger.info(f"For date {date} use {directory_path}. Start downloading...")
     download_files(date)
@@ -153,7 +142,7 @@ def scheduled_everyday_task(
 
 
 def ping_task():
-    logger.info("Sheduler is working")
+    logger.info("Scheduler is working")
 
 if __name__ == "__main__":
 

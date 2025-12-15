@@ -6,7 +6,7 @@ import requests
 
 # broker="simurg.space"
 # port = 8778
-server_url = "http://127.0.0.1:8000"
+server_url = "http://95.215.56.197:8000"
 broker="broker.emqx.io"
 
 def on_message(client, userdata, message):
@@ -20,8 +20,9 @@ def get_all_stations() -> list:  # type: ignore
     else:
         print("Failed to get all streamers:", response.json())
 all_stations = get_all_stations()
-count_stations = int(input("count stations: "))
 print(all_stations)
+count_stations = int(input("count stations: "))
+
 
 
 # client = mqtt_client.Client(

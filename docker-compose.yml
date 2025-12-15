@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # RabbitMQ message broker
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rinex_rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"      # RabbitMQ main port
+      - "15672:15672"    # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - rinex_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rinex_api
+    hostname: api
+    ports:
+      - "8000:8000"
+    environment:
+      SERVICE_NAME: api
+      SERVER_URL: http://api:8000
+      SOURCE_HOST: ${SOURCE_HOST}
+      SOURCE_PORT: ${SOURCE_PORT}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      STORAGE_PATH: /var/rnx_streamer
+      DAYS_TO_SUBTRACT: ${DAYS_TO_SUBTRACT:-7}
+      AVAILABLE_RAM: ${AVAILABLE_RAM:-85}
+    networks:
+      - rinex_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/all_streamers/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Scheduler (main application)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rinex_scheduler
+    hostname: scheduler
+    environment:
+      SERVICE_NAME: scheduler
+      SERVER_URL: http://api:8000
+      SOURCE_HOST: ${SOURCE_HOST}
+      SOURCE_PORT: ${SOURCE_PORT}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      STORAGE_PATH: /var/rnx_streamer
+      DAYS_TO_SUBTRACT: ${DAYS_TO_SUBTRACT:-7}
+      AVAILABLE_RAM: ${AVAILABLE_RAM:-85}
+    volumes:
+      - rinex_data:/var/rnx_streamer
+    networks:
+      - rinex_network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  rinex_network:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  rinex_data:
+    driver: local

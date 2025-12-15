@@ -70,13 +70,6 @@ class Streamer:
         )
         self.channel = connection.channel()
 
-        # Create a queue with a TTL of 24 hours (in milliseconds)
-        self.queue_name = "tec_data"
-        self.channel.queue_declare(
-            queue=self.queue_name,
-            arguments={"x-message-ttl": 86400000}  # 24 часа в миллисекундах
-        )
-
         self.iterator = None
         self.reader = None
         self.scheduler = BlockingScheduler()
@@ -99,6 +92,14 @@ class Streamer:
         self.file_name = self.file_path.name
         self.file = open(self.file_path, "r", encoding="utf-8")
         self.logger = setup_logger(f"Streamer_{self.file_name[:4]}")
+
+        # Create a queue with station name and TTL of 24 hours (in milliseconds)
+        self.queue_name = self.file_name[:4]  # Use station name as queue name
+        self.channel.queue_declare(
+            queue=self.queue_name,
+            arguments={"x-message-ttl": 86400000}  # 24 часа в миллисекундах
+        )
+        self.logger.info(f"Created/connected to queue: {self.queue_name}")
 
         # try:
         #     self.reader = rnx(self.file)

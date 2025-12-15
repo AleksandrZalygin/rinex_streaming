@@ -267,3 +267,7 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm+all
+
+# Docker
+.env.docker.local
+docker-compose.override.yml
