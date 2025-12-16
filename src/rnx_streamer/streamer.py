@@ -57,8 +57,8 @@ class Streamer:
         # Initial
         self.rabbitmq_host = os.getenv("RABBITMQ_HOST", "localhost")
         self.rabbitmq_port = int(os.getenv("RABBITMQ_PORT", 5672))
-        self.rabbitmq_user = os.getenv("RABBITMQ_USER", "guest")
-        self.rabbitmq_password = os.getenv("RABBITMQ_PASSWORD", "guest")
+        self.rabbitmq_user = os.getenv("RABBITMQ_USER", "user")
+        self.rabbitmq_password = os.getenv("RABBITMQ_PASSWORD", "123")
 
         # Connecttiion
         connection = pika.BlockingConnection(

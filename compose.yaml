@@ -11,8 +11,8 @@ services:
       - "5672:5672"      # RabbitMQ main port
       - "15672:15672"    # Management UI
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-123}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -39,8 +39,8 @@ services:
       SOURCE_PORT: ${SOURCE_PORT}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
-      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_USER: ${RABBITMQ_USER:-user}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-123}
       STORAGE_PATH: ${STORAGE_PATH}
       DAYS_TO_SUBTRACT: ${DAYS_TO_SUBTRACT:-7}
       AVAILABLE_RAM: ${AVAILABLE_RAM:-85}
@@ -68,13 +68,13 @@ services:
       SOURCE_PORT: ${SOURCE_PORT}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
-      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_USER: ${RABBITMQ_USER:-user}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-123}
       STORAGE_PATH: ${STORAGE_PATH}
       DAYS_TO_SUBTRACT: ${DAYS_TO_SUBTRACT:-7}
       AVAILABLE_RAM: ${AVAILABLE_RAM:-85}
     volumes:
-      - rinex_data:${STORAGE_PATH}
+      - /root/projects/rinex_streaming/data:/root/projects/rinex_streaming/data
     networks:
       - rinex_network
     depends_on:
