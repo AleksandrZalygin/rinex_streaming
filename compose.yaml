@@ -38,10 +38,10 @@ services:
       SOURCE_HOST: ${SOURCE_HOST}
       SOURCE_PORT: ${SOURCE_PORT}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
-      STORAGE_PATH: /var/rnx_streamer
+      STORAGE_PATH: ${STORAGE_PATH}
       DAYS_TO_SUBTRACT: ${DAYS_TO_SUBTRACT:-7}
       AVAILABLE_RAM: ${AVAILABLE_RAM:-85}
     networks:
@@ -67,14 +67,14 @@ services:
       SOURCE_HOST: ${SOURCE_HOST}
       SOURCE_PORT: ${SOURCE_PORT}
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
-      STORAGE_PATH: /var/rnx_streamer
+      STORAGE_PATH: ${STORAGE_PATH}
       DAYS_TO_SUBTRACT: ${DAYS_TO_SUBTRACT:-7}
       AVAILABLE_RAM: ${AVAILABLE_RAM:-85}
     volumes:
-      - rinex_data:/var/rnx_streamer
+      - rinex_data:${STORAGE_PATH}
     networks:
       - rinex_network
     depends_on:

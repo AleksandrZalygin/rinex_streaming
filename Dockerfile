@@ -25,9 +25,6 @@ RUN pip install --no-cache-dir uvicorn[standard]
 COPY src/ /app/src/
 COPY .env.example /app/.env.example
 
-# Create directory for data storage
-RUN mkdir -p /var/rnx_streamer/data
-
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
