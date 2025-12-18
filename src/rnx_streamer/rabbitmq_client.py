@@ -62,7 +62,7 @@ class RabbitMQClient:
 
 if __name__ == "__main__":
     # Пример использования:
-    # python rabbitmq_client.py ARTU NVSK IRKT  - подписка на несколько станций
+    # python rabbitmq_client.py BOR1 ALGO       - подписка на несколько станций
     # python rabbitmq_client.py                 - подписка на старую очередь "tec_data"
 
     if len(sys.argv) > 1:

@@ -135,9 +135,13 @@ def scheduled_everyday_task(
     date = get_date(days_to_subtract)  # Stay on the same day instead of advancing
     directory_path = storage_path / "data" / date
     logger.info(f"For date {date} use {directory_path}. Start downloading...")
-    download_files(date)
-    logger.info(f"Updating config files for streamers.")
-    update_cfg_files(orchestrator, directory_path)
+
+    # TEMPORARY: Disable day switching for testing
+    # Uncomment these lines to enable day switching:
+    # download_files(date)
+    # update_cfg_files(orchestrator, directory_path)
+
+    logger.info("TESTING MODE: Day switching disabled. Keeping same day.")
     logger.info("Ended task")
 
 
